@@ -32,7 +32,7 @@
 %
 
 
-base_dir='/media/My Passport/oe_test'
+base_dir='/media/data_ephys3/oe_test'
 
 exps(1).path='2014-03-28_14-01-06_0_10k_filter';
 exps(1).filter=[0.1 10000];
@@ -162,6 +162,7 @@ for exp_num=1:3;
         crossings= find( [0; diff(sign(datablock_hilb))] .* (abs(datablock_hilb)>1) ) ;
         crossings(crossings<50000)=[]; % remove early crossings so that we only get clean waveforms
         ncrosses=min(numel(crossings)-1,20);
+        if ncrosses>1
         e=zeros(ncrosses,phase_quant_points);
         for j=1:ncrosses
             ii=crossings(j):crossings(j+1)-1;
@@ -178,10 +179,12 @@ for exp_num=1:3;
         else
             phase_error=e;
         end;
-        
+        else
+            phase_error=zeros(1,phase_quant_points);
+        end;
         clf; hold on
         
-        plot(crossings,0,'ks');
+    %    plot(crossings,0,'ks');
         plot(datablock.*.01,'g');
         plot(datablock_sm.*.01,'r');
         plot(datablock_hilb,'k');
@@ -213,6 +216,8 @@ for exp_num=1:3;
     title(['experiment: ',exps(exp_num).path],'interpreter','none');
     
     plot2svg(['plots/freq_response',exps(exp_num).path,'.svg']);
+    
+    saveas(gca,['plots/freq_response',exps(exp_num).path,'.fig'])
     
     %% plot phase distortion
     
@@ -272,6 +277,7 @@ for exp_num=1:3;
     
     pause(1);
     plot2svg(['plots/phase_error',exps(exp_num).path,'.svg']);
+    saveas(gca,['plots/phase_error',exps(exp_num).path,'.fig'])
     
 end;
 
