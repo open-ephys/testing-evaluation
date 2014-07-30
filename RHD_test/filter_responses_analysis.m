@@ -99,9 +99,9 @@ for exp_num=1:4
             
             blocks.onsets(101:150)=linspace(13.5,1001.5,50)+2184;
             blocks.amp(101:150)=5000;%uV
-            blocks.ampnum(101:150)=3;      
+            blocks.ampnum(101:150)=3;
             
-         case 3
+        case 3
             blocks.onsets(1:50)=linspace(13.5,1001.5,50)+0;
             blocks.amp(1:50)=1000;%uV
             blocks.ampnum(1:50)=1;
@@ -113,8 +113,8 @@ for exp_num=1:4
             blocks.onsets(101:150)=linspace(13.5,1001.5,50)+2181.5;
             blocks.amp(101:150)=5000;%uV
             blocks.ampnum(101:150)=3;
-        case 4
-           blocks.onsets(1:50)=linspace(23,766,50)+0;
+        case 4                          % only ran one experiment at low amplitude here
+            blocks.onsets(1:50)=linspace(23,766,50)+0;
             blocks.amp(1:50)=100; %uV
             blocks.ampnum(1:50)=1;
     end;
@@ -149,6 +149,11 @@ for exp_num=1:4
     end;
     
     %% quantify phase distortion
+    %
+    % just fit a straight line to the hilbert transform and look at max.
+    % deviation normalized to pi, this should give a nice estimate of max. phase
+    % distortion in percent
+    %
     phase_quant_points=100; % N points over which to quantify phase distortion
     for i=1:numel(blocks.onsets)
         t=blocks.onsets(i)+[0 10]'; % cut out first few seconds to let lc settle
@@ -168,35 +173,35 @@ for exp_num=1:4
         crossings(crossings<50000)=[]; % remove early crossings so that we only get clean waveforms
         ncrosses=min(numel(crossings),20);
         if ncrosses>1
-        e=zeros(ncrosses,phase_quant_points);
-        for j=1:ncrosses-1
-            ii=crossings(j):crossings(j+1)-1;
-            %x=datablock_hilb(ii)-linspace(-pi,pi,numel(ii))'; % raw phase error
-            
-            if numel(ii)<5;
-                % just straight line
-                x=datablock_hilb(ii)-linspace(datablock_hilb(ii(1)),datablock_hilb(ii(end)),numel(ii))'; % raw phase error
-            else
-                % do linear fit, accounts for crossing detection jitter -
-                % should be mroe accurate representation of true phase
-                % distortion
-                r=[ones(size(ii));ii];
-                b=regress(datablock_hilb(ii),r');
-                x=datablock_hilb(ii)-(b'*r)';
-                plot(ii,b'*r,'r');
+            e=zeros(ncrosses,phase_quant_points);
+            for j=1:ncrosses-1
+                ii=crossings(j):crossings(j+1)-1;
+                %x=datablock_hilb(ii)-linspace(-pi,pi,numel(ii))'; % raw phase error
+                
+                if numel(ii)<5;
+                    % just straight line
+                    x=datablock_hilb(ii)-linspace(datablock_hilb(ii(1)),datablock_hilb(ii(end)),numel(ii))'; % raw phase error
+                else
+                    % do linear fit, accounts for crossing detection jitter -
+                    % should be mroe accurate representation of true phase
+                    % distortion
+                    r=[ones(size(ii));ii];
+                    b=regress(datablock_hilb(ii),r');
+                    x=datablock_hilb(ii)-(b'*r)';
+                    plot(ii,b'*r,'r');
+                end;
+                
+                if numel(x)>2
+                    e(j,:)=interp1(x,linspace(1,numel(x),phase_quant_points)); % interpolate to same number of points
+                else
+                    e(j,:)=zeros(1,phase_quant_points);
+                end;
             end;
-            
-            if numel(x)>2
-                e(j,:)=interp1(x,linspace(1,numel(x),phase_quant_points)); % interpolate to same number of points
+            if size(e,1)>1
+                phase_error=mean(e);
             else
-                e(j,:)=zeros(1,phase_quant_points);
+                phase_error=e;
             end;
-        end;
-        if size(e,1)>1
-            phase_error=mean(e);
-        else
-            phase_error=e;
-        end;
         else
             phase_error=zeros(1,phase_quant_points);
         end;
@@ -218,7 +223,7 @@ for exp_num=1:4
     end;
     
     
-    %% plot freq. response
+    %% plot freq. response and max. phase distortion
     figure(3+exp_num*10);
     clf; subplot(2,1,1);
     for i=1:size(blocks.onsets,1)
@@ -236,29 +241,27 @@ for exp_num=1:4
     ylabel('Attenuation log ratio');
     title(['experiment: ',exps(exp_num).path],'interpreter','none');
     
+    %plot phase distortion
     subplot(2,1,2);
-        for i=1:size(blocks.onsets,1)
+    for i=1:size(blocks.onsets,1)
         c=[1-i/4,0,i/3]';
         signamp=mean(blocks.amp(blocks.ampnum==i));
-        semilogx(freq_points, max(abs(blocks.phase_error(blocks.ampnum==i,:)')) ,'o-','color',c);
+        semilogx(freq_points, max(abs(blocks.phase_error(blocks.ampnum==i,:)')) ,'o-','color',c); % max. distortion across phase
         %plot(log(freq_points), blocks.peak_attenuation(blocks.ampnum==i)./signamp,'o-','color',c);
         text(10,i/10,[num2str(signamp),'mV'],'color',c);
         hold on;
     end;
-     xlabel('Frequency (Hz)');
+    xlabel('Frequency (Hz)');
     ylabel('Max abs. harmonic distortion (%)');
     
     grid on;
     
     
-        
-        
-    
     plot2svg(['plots/freq_response',exps(exp_num).path,'.svg']);
     
     saveas(gca,['plots/freq_response',exps(exp_num).path,'.fig'])
     
-
+    
     
     %% plot phase distortion
     
