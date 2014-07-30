@@ -1,16 +1,13 @@
 % This code requires manual configuration of the paths and the boundaries
 % between different test blocks
 %
-% quantifies freq. response by measuring abs peak amp per frequ3ency block
+% quantifies freq. response by measuring abs peak amp per frequency block
 %
 % measures phase distortion by measuring the deviation between the hilbert
 % transform and a straight line.
 % However, the analysis is frequency-agnostic, so interference patterns
 % above nyquist could result in very low reported phase distortion if the
 % resulting interference pattern is neatly sinusodial
-
-
-
 %
 %     ------------------------------------------------------------------
 %
@@ -34,19 +31,23 @@
 
 base_dir='/media/data_ephys3/oe_test'
 
-exps(1).path='2014-03-28_14-01-06_0_10k_filter';
+exps(1).path='2014-03-28_14-01-06_0_10k_filter';    % 0.1Hz low cut
 exps(1).filter=[0.1 10000];
 
-exps(2).path='2014-03-28_15-10-09_1_75k_filter';
+exps(2).path='2014-03-28_15-10-09_1_75k_filter';    % 1Hz low cut
 exps(2).filter=[1 75000];
 
-exps(3).path='2014-03-28_16-09-07_324_5982_filter';
+exps(3).path='2014-03-28_16-09-07_324_5982_filter'; % spike band filter
 exps(3).filter=[300 6000];
+
+exps(4).path='2014-07-17_15-58-57_100uV';           % filter wide open but low stim. amp
+exps(4).filter=[0.1 10000];
+
 
 
 chs=[1:10 17]; % all channels that were used
 
-use_channel=2;
+use_channel=3;
 
 freq_min=-1; % from 0.1
 freq_max=4;  % to 10000Hz
@@ -61,7 +62,7 @@ set(0,'DefaultFigureWindowStyle','docked');
 
 %%
 
-for exp_num=1:3;
+for exp_num=1:4
     
     fname=fullfile(base_dir,exps(exp_num).path);
     for ch=use_channel
@@ -72,46 +73,50 @@ for exp_num=1:3;
     data_hilb=angle(hilbert(data));
     data_phase=angle(data_hilb);
     %% define block onsets <--- change this manually
+    clear blocks;
     switch exp_num
         case 1
             blocks.onsets(1:50)=linspace(13.5,1001.5,50);
-            blocks.amp(1:50)=1000;
+            blocks.amp(1:50)=1000;%uV
             blocks.ampnum(1:50)=1;
             
             blocks.onsets(51:100)=linspace(13.5,1001.5,50)+1091;
-            blocks.amp(51:100)=3000;
+            blocks.amp(51:100)=3000;%uV
             blocks.ampnum(51:100)=2;
             
             blocks.onsets(101:150)=linspace(13.5,1001.5,50)+2182;
-            blocks.amp(101:150)=5000;
+            blocks.amp(101:150)=5000;%uV
             blocks.ampnum(101:150)=3;
             
         case 2
             blocks.onsets(1:50)=linspace(13.5,1001.5,50)+2.9;
-            blocks.amp(1:50)=1000;
+            blocks.amp(1:50)=1000;%uV
             blocks.ampnum(1:50)=1;
             
             blocks.onsets(51:100)=linspace(13.5,1001.5,50)+1093;
-            blocks.amp(51:100)=3000;
+            blocks.amp(51:100)=3000;%uV
             blocks.ampnum(51:100)=2;
             
             blocks.onsets(101:150)=linspace(13.5,1001.5,50)+2184;
-            blocks.amp(101:150)=5000;
-            blocks.ampnum(101:150)=3;
-            
+            blocks.amp(101:150)=5000;%uV
+            blocks.ampnum(101:150)=3;      
             
          case 3
             blocks.onsets(1:50)=linspace(13.5,1001.5,50)+0;
-            blocks.amp(1:50)=1000;
+            blocks.amp(1:50)=1000;%uV
             blocks.ampnum(1:50)=1;
             
             blocks.onsets(51:100)=linspace(13.5,1001.5,50)+1090.5;
-            blocks.amp(51:100)=3000;
+            blocks.amp(51:100)=3000;%uV
             blocks.ampnum(51:100)=2;
             
             blocks.onsets(101:150)=linspace(13.5,1001.5,50)+2181.5;
-            blocks.amp(101:150)=5000;
+            blocks.amp(101:150)=5000;%uV
             blocks.ampnum(101:150)=3;
+        case 4
+           blocks.onsets(1:50)=linspace(23,766,50)+0;
+            blocks.amp(1:50)=100; %uV
+            blocks.ampnum(1:50)=1;
     end;
     
     blocks.freq=[freq_points,freq_points,freq_points];
@@ -126,7 +131,7 @@ for exp_num=1:3;
     end;
     
     % plot block boundaries
-    subs=60;
+    subs=5;
     
     figure(1+exp_num*10);
     clf; hold on;
@@ -161,13 +166,26 @@ for exp_num=1:3;
         
         crossings= find( [0; diff(sign(datablock_hilb))] .* (abs(datablock_hilb)>1) ) ;
         crossings(crossings<50000)=[]; % remove early crossings so that we only get clean waveforms
-        ncrosses=min(numel(crossings)-1,20);
+        ncrosses=min(numel(crossings),20);
         if ncrosses>1
         e=zeros(ncrosses,phase_quant_points);
-        for j=1:ncrosses
+        for j=1:ncrosses-1
             ii=crossings(j):crossings(j+1)-1;
             %x=datablock_hilb(ii)-linspace(-pi,pi,numel(ii))'; % raw phase error
-            x=datablock_hilb(ii)-linspace(datablock_hilb(ii(1)),datablock_hilb(ii(end)),numel(ii))'; % raw phase error
+            
+            if numel(ii)<5;
+                % just straight line
+                x=datablock_hilb(ii)-linspace(datablock_hilb(ii(1)),datablock_hilb(ii(end)),numel(ii))'; % raw phase error
+            else
+                % do linear fit, accounts for crossing detection jitter -
+                % should be mroe accurate representation of true phase
+                % distortion
+                r=[ones(size(ii));ii];
+                b=regress(datablock_hilb(ii),r');
+                x=datablock_hilb(ii)-(b'*r)';
+                plot(ii,b'*r,'r');
+            end;
+            
             if numel(x)>2
                 e(j,:)=interp1(x,linspace(1,numel(x),phase_quant_points)); % interpolate to same number of points
             else
@@ -182,13 +200,16 @@ for exp_num=1:3;
         else
             phase_error=zeros(1,phase_quant_points);
         end;
+        
+        phase_error=(phase_error/pi)*100; % in percent of maximum phase error
+        
         clf; hold on
         
-    %    plot(crossings,0,'ks');
+        plot(crossings,0,'ks');
         plot(datablock.*.01,'g');
         plot(datablock_sm.*.01,'r');
         plot(datablock_hilb,'k');
-        plot(linspace(0,100000,phase_quant_points),phase_error.*100,'LineWidth',2);
+        plot(linspace(0,100000,phase_quant_points),phase_error.*1,'LineWidth',2);
         
         drawnow;
         % pause(1);
@@ -199,11 +220,11 @@ for exp_num=1:3;
     
     %% plot freq. response
     figure(3+exp_num*10);
-    clf;
-    for i=1:3
+    clf; subplot(2,1,1);
+    for i=1:size(blocks.onsets,1)
         c=[1-i/4,0,i/3]';
         signamp=mean(blocks.amp(blocks.ampnum==i));
-        loglog(freq_points, blocks.peak_attenuation(blocks.ampnum==i)./signamp,'o-','color',c);
+        semilogx(freq_points, blocks.peak_attenuation(blocks.ampnum==i)./signamp,'o-','color',c);
         %plot(log(freq_points), blocks.peak_attenuation(blocks.ampnum==i)./signamp,'o-','color',c);
         text(10,i/10,[num2str(signamp),'mV'],'color',c);
         hold on;
@@ -215,9 +236,29 @@ for exp_num=1:3;
     ylabel('Attenuation log ratio');
     title(['experiment: ',exps(exp_num).path],'interpreter','none');
     
+    subplot(2,1,2);
+        for i=1:size(blocks.onsets,1)
+        c=[1-i/4,0,i/3]';
+        signamp=mean(blocks.amp(blocks.ampnum==i));
+        semilogx(freq_points, max(abs(blocks.phase_error(blocks.ampnum==i,:)')) ,'o-','color',c);
+        %plot(log(freq_points), blocks.peak_attenuation(blocks.ampnum==i)./signamp,'o-','color',c);
+        text(10,i/10,[num2str(signamp),'mV'],'color',c);
+        hold on;
+    end;
+     xlabel('Frequency (Hz)');
+    ylabel('Max abs. harmonic distortion (%)');
+    
+    grid on;
+    
+    
+        
+        
+    
     plot2svg(['plots/freq_response',exps(exp_num).path,'.svg']);
     
     saveas(gca,['plots/freq_response',exps(exp_num).path,'.fig'])
+    
+
     
     %% plot phase distortion
     
