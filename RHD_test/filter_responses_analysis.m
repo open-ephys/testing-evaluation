@@ -76,6 +76,7 @@ for exp_num=1:4
     clear blocks;
     switch exp_num
         case 1
+            num_ampblocks=3;
             blocks.onsets(1:50)=linspace(13.5,1001.5,50);
             blocks.amp(1:50)=1000;%uV
             blocks.ampnum(1:50)=1;
@@ -89,6 +90,7 @@ for exp_num=1:4
             blocks.ampnum(101:150)=3;
             
         case 2
+            num_ampblocks=3;
             blocks.onsets(1:50)=linspace(13.5,1001.5,50)+2.9;
             blocks.amp(1:50)=1000;%uV
             blocks.ampnum(1:50)=1;
@@ -102,6 +104,7 @@ for exp_num=1:4
             blocks.ampnum(101:150)=3;
             
         case 3
+            num_ampblocks=3;
             blocks.onsets(1:50)=linspace(13.5,1001.5,50)+0;
             blocks.amp(1:50)=1000;%uV
             blocks.ampnum(1:50)=1;
@@ -114,6 +117,7 @@ for exp_num=1:4
             blocks.amp(101:150)=5000;%uV
             blocks.ampnum(101:150)=3;
         case 4                          % only ran one experiment at low amplitude here
+            num_ampblocks=1;
             blocks.onsets(1:50)=linspace(23,766,50)+0;
             blocks.amp(1:50)=100; %uV
             blocks.ampnum(1:50)=1;
@@ -133,7 +137,7 @@ for exp_num=1:4
     % plot block boundaries
     subs=5;
     
-    figure(1+exp_num*10);
+    figure(1);
     clf; hold on;
     plot(timestamps(1:subs:end),data(1:subs:end));
     
@@ -188,7 +192,7 @@ for exp_num=1:4
                     r=[ones(size(ii));ii];
                     b=regress(datablock_hilb(ii),r');
                     x=datablock_hilb(ii)-(b'*r)';
-                    plot(ii,b'*r,'r');
+                    % plot(ii,b'*r,'r');
                 end;
                 
                 if numel(x)>2
@@ -208,6 +212,7 @@ for exp_num=1:4
         
         phase_error=(phase_error/pi)*100; % in percent of maximum phase error
         
+        figure(1);
         clf; hold on
         
         plot(crossings,0,'ks');
@@ -226,7 +231,7 @@ for exp_num=1:4
     %% plot freq. response and max. phase distortion
     figure(3+exp_num*10);
     clf; subplot(2,1,1);
-    for i=1:size(blocks.onsets,1)
+    for i=1:num_ampblocks
         c=[1-i/4,0,i/3]';
         signamp=mean(blocks.amp(blocks.ampnum==i));
         semilogx(freq_points, blocks.peak_attenuation(blocks.ampnum==i)./signamp,'o-','color',c);
@@ -243,7 +248,7 @@ for exp_num=1:4
     
     %plot phase distortion
     subplot(2,1,2);
-    for i=1:size(blocks.onsets,1)
+    for i=1:num_ampblocks
         c=[1-i/4,0,i/3]';
         signamp=mean(blocks.amp(blocks.ampnum==i));
         semilogx(freq_points, max(abs(blocks.phase_error(blocks.ampnum==i,:)')) ,'o-','color',c); % max. distortion across phase
@@ -269,7 +274,7 @@ for exp_num=1:4
     
     plotrange=1;
     
-    for amp=1:3
+    for amp=1:num_ampblocks
         
         
         subplot(3,2,(amp*2)-1);
